@@ -1,0 +1,476 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>학생 작품모음</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <meta name="theme-color" content="#2f6fed">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="작품모음">
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f4f6fa;
+        --panel: #ffffff;
+        --ink: #1f2937;
+        --muted: #667085;
+        --line: #d9e0ea;
+        --soft: #eef4ff;
+        --accent: #2f6fed;
+        --accent-strong: #255dc9;
+        --success: #198754;
+        --danger: #b42318;
+        --shadow: 0 18px 44px rgba(31, 41, 55, 0.13);
+      }
+
+      * { box-sizing: border-box; }
+      html, body { height: 100%; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      .app { min-height: 100dvh; display: flex; flex-direction: column; }
+      .login-wrap {
+        width: min(100%, 440px);
+        margin: auto;
+        padding: max(22px, env(safe-area-inset-top)) 18px max(22px, env(safe-area-inset-bottom));
+      }
+      .login-panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+      .login-head {
+        padding: 22px 22px 18px;
+        border-bottom: 1px solid var(--line);
+        background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        height: 26px;
+        margin-bottom: 12px;
+        padding: 0 10px;
+        border: 1px solid #cfe0ff;
+        border-radius: 999px;
+        background: var(--soft);
+        color: var(--accent-strong);
+        font-size: 12px;
+        font-weight: 800;
+      }
+      .form-body { padding: 20px 22px 22px; }
+      h1 { margin: 0 0 8px; font-size: 25px; line-height: 1.25; letter-spacing: 0; }
+      .sub { margin: 0; color: var(--muted); font-size: 15px; line-height: 1.5; }
+      label {
+        display: block;
+        margin: 14px 0 7px;
+        color: #2b3448;
+        font-size: 14px;
+        font-weight: 700;
+      }
+      input, select {
+        width: 100%;
+        height: 50px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 0 14px;
+        color: var(--ink);
+        font-size: 17px;
+        outline: none;
+        background: #fff;
+      }
+      select { padding-right: 38px; }
+      input:focus, select:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
+      }
+      button {
+        width: 100%;
+        height: 52px;
+        margin-top: 18px;
+        border: 0;
+        border-radius: 8px;
+        background: var(--accent);
+        color: #fff;
+        font-size: 17px;
+        font-weight: 800;
+        cursor: pointer;
+      }
+      button:active { background: var(--accent-strong); }
+      button:disabled { opacity: 0.65; cursor: wait; }
+      .error { min-height: 22px; margin: 12px 0 0; color: var(--danger); font-size: 14px; font-weight: 700; }
+
+      .portfolio { display: none; min-height: 100dvh; flex-direction: column; background: #fff; }
+      .topbar {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 10px;
+        align-items: center;
+        min-height: 62px;
+        padding: max(10px, env(safe-area-inset-top)) 12px 10px;
+        border-bottom: 1px solid var(--line);
+        background: #fff;
+        box-shadow: 0 1px 10px rgba(31, 41, 55, 0.06);
+        z-index: 2;
+      }
+      .title { min-width: 0; }
+      .title strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 17px; }
+      .title span { display: block; margin-top: 2px; color: var(--muted); font-size: 13px; }
+      .top-actions { display: flex; gap: 6px; align-items: center; }
+      .small-btn {
+        width: auto;
+        height: 38px;
+        margin: 0;
+        padding: 0 11px;
+        flex: 0 0 auto;
+        background: #f1f4f9;
+        color: #273248;
+        font-size: 13px;
+        font-weight: 800;
+      }
+      .notify-btn.on { background: #eaf7ee; color: #11643b; }
+      .notify-btn.off { background: #f1f4f9; color: #273248; }
+      .notify-btn.warn { background: #fff3d6; color: #8a5b00; }
+      .padlet-frame { width: 100%; min-height: 0; flex: 1; border: 0; background: #fff; }
+      .fallback-link {
+        display: none;
+        padding: 10px 14px max(10px, env(safe-area-inset-bottom));
+        border-top: 1px solid var(--line);
+        color: var(--accent);
+        font-size: 14px;
+        font-weight: 700;
+        text-align: center;
+        text-decoration: none;
+      }
+      .notice {
+        padding: 8px 12px;
+        border-bottom: 1px solid var(--line);
+        background: #f8fbff;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.45;
+      }
+
+      @media (max-width: 520px) {
+        .login-wrap { padding: 18px 14px; }
+        h1 { font-size: 23px; }
+        .login-head, .form-body { padding-left: 18px; padding-right: 18px; }
+        .topbar { min-height: 58px; }
+        .small-btn { padding: 0 9px; font-size: 12px; }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="app">
+      <section class="login-wrap" id="loginScreen">
+        <div class="login-panel">
+          <div class="login-head">
+            <div class="badge">6학년 1반</div>
+            <h1>학생 작품모음</h1>
+            <p class="sub">우리 반 패들렛 포트폴리오</p>
+          </div>
+
+          <form class="form-body" id="loginForm" autocomplete="off">
+            <label for="number">학생 이름</label>
+            <select id="number" name="number" required>
+              <option value="">선택</option>
+            </select>
+
+            <label for="pin">핀번호</label>
+            <input id="pin" name="pin" inputmode="numeric" type="password" placeholder="핀번호">
+
+            <button id="loginButton" type="submit">작품모음 보기</button>
+            <p class="error" id="errorMessage" aria-live="polite"></p>
+          </form>
+        </div>
+      </section>
+
+      <section class="portfolio" id="portfolioScreen">
+        <header class="topbar">
+          <div class="title">
+            <strong id="portfolioTitle">작품모음</strong>
+            <span id="studentInfo"></span>
+          </div>
+          <div class="top-actions">
+            <button class="small-btn notify-btn off" type="button" id="notifyButton">알림</button>
+            <button class="small-btn" type="button" id="testButton">테스트</button>
+            <button class="small-btn" type="button" id="logoutButton">나가기</button>
+          </div>
+        </header>
+        <div class="notice" id="noticeText">알림을 켜면 새 작품이 올라왔을 때 잠금화면으로 알려드려요.</div>
+        <iframe class="padlet-frame" id="padletFrame" title="학생 패들렛 작품모음" allow="camera;microphone;geolocation"></iframe>
+        <a class="fallback-link" id="fallbackLink" target="_blank" rel="noopener">새 창에서 열기</a>
+      </section>
+    </main>
+
+    <script>
+      const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyYB5l_iigw95tVtoe4E4K-Zf2XlzVBo1dGCZUPAqxyOGFoUMAeN1M5DwVWVwOt6aA/exec';
+      const PUSH_PUBLIC_KEY = 'BJh74RZxk4VrDHzZTJM7DG6ZZhyyHKyQl_P_5xLxqHC1NK95XO2NBg9Miwv7hPse43wHxGiu80EQQ0wPqSWej-U';
+
+      const loginScreen = document.querySelector('#loginScreen');
+      const portfolioScreen = document.querySelector('#portfolioScreen');
+      const loginForm = document.querySelector('#loginForm');
+      const loginButton = document.querySelector('#loginButton');
+      const errorMessage = document.querySelector('#errorMessage');
+      const portfolioTitle = document.querySelector('#portfolioTitle');
+      const studentInfo = document.querySelector('#studentInfo');
+      const padletFrame = document.querySelector('#padletFrame');
+      const fallbackLink = document.querySelector('#fallbackLink');
+      const logoutButton = document.querySelector('#logoutButton');
+      const notifyButton = document.querySelector('#notifyButton');
+      const testButton = document.querySelector('#testButton');
+      const noticeText = document.querySelector('#noticeText');
+      const studentSelect = document.querySelector('#number');
+
+      let currentLogin = null;
+      let currentStudent = null;
+
+      api('getLoginStudents', [])
+        .then(fillStudentOptions)
+        .catch(() => {
+          errorMessage.textContent = '학생 목록을 불러오지 못했습니다. 새로고침해 주세요.';
+        });
+
+      loginForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+        errorMessage.textContent = '';
+        loginButton.disabled = true;
+        loginButton.textContent = '확인 중...';
+
+        const formData = new FormData(loginForm);
+        currentLogin = {
+          number: formData.get('number'),
+          pin: formData.get('pin'),
+        };
+
+        api('login', [currentLogin])
+          .then(handleLogin)
+          .catch(() => showError('잠시 후 다시 시도해 주세요.'));
+      });
+
+      notifyButton.addEventListener('click', togglePush);
+      testButton.addEventListener('click', sendTestPush);
+
+      logoutButton.addEventListener('click', () => {
+        padletFrame.src = 'about:blank';
+        fallbackLink.href = '#';
+        loginForm.reset();
+        currentLogin = null;
+        currentStudent = null;
+        portfolioScreen.style.display = 'none';
+        loginScreen.style.display = 'flex';
+        studentSelect.focus();
+      });
+
+      function api(name, args) {
+        return new Promise((resolve, reject) => {
+          if (!SCRIPT_URL || SCRIPT_URL.indexOf('PASTE_APPS_SCRIPT') >= 0) {
+            reject(new Error('Apps Script URL이 설정되지 않았습니다.'));
+            return;
+          }
+
+          const cb = '__padlet_cb_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
+          const script = document.createElement('script');
+          const timer = setTimeout(() => cleanup(new Error('timeout')), 30000);
+
+          function cleanup(error, value) {
+            clearTimeout(timer);
+            try { delete window[cb]; } catch (e) {}
+            if (script.parentNode) script.parentNode.removeChild(script);
+            if (error) reject(error);
+            else resolve(value);
+          }
+
+          window[cb] = (response) => {
+            if (response && response.ok) cleanup(null, response.result);
+            else cleanup(new Error((response && response.error) || 'API 오류'));
+          };
+
+          script.onerror = () => cleanup(new Error('network'));
+          script.src = SCRIPT_URL + '?fn=' + encodeURIComponent(name) +
+            '&callback=' + encodeURIComponent(cb) +
+            '&p=' + encodeURIComponent(JSON.stringify(args || []));
+          document.head.appendChild(script);
+        });
+      }
+
+      function fillStudentOptions(students) {
+        if (!Array.isArray(students)) return;
+        students.forEach((student) => {
+          const option = document.createElement('option');
+          option.value = student.number;
+          option.textContent = student.label || `${student.number}번 ${student.name}`;
+          studentSelect.appendChild(option);
+        });
+      }
+
+      function handleLogin(result) {
+        if (!result || !result.ok) {
+          showError(result && result.message ? result.message : '번호 또는 핀번호를 다시 확인해 주세요.');
+          return;
+        }
+
+        currentStudent = result.student;
+        portfolioTitle.textContent = currentStudent.title;
+        studentInfo.textContent = currentStudent.number ? `${currentStudent.number}번` : '';
+        padletFrame.src = currentStudent.padletUrl;
+        fallbackLink.href = currentStudent.padletUrl;
+        fallbackLink.style.display = 'block';
+        loginScreen.style.display = 'none';
+        portfolioScreen.style.display = 'flex';
+        resetButton();
+        refreshPushStatus();
+        autoRegisterIfAlreadyAllowed();
+      }
+
+      function showError(message) {
+        errorMessage.textContent = message;
+        resetButton();
+      }
+
+      function resetButton() {
+        loginButton.disabled = false;
+        loginButton.textContent = '작품모음 보기';
+      }
+
+      function pushSupported() {
+        return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+      }
+
+      function setPushUi(state, message) {
+        notifyButton.classList.remove('on', 'off', 'warn');
+        if (state === 'on') {
+          notifyButton.classList.add('on');
+          notifyButton.textContent = '알림 켬';
+        } else if (state === 'warn') {
+          notifyButton.classList.add('warn');
+          notifyButton.textContent = '알림 필요';
+        } else {
+          notifyButton.classList.add('off');
+          notifyButton.textContent = '알림';
+        }
+        if (message) noticeText.textContent = message;
+      }
+
+      async function getPushRegistration() {
+        if (!pushSupported()) throw new Error('이 기기에서는 Web Push를 지원하지 않아요.');
+        return await navigator.serviceWorker.register('sw.js?v=20260626');
+      }
+
+      async function togglePush() {
+        if (!currentLogin || !currentStudent) {
+          alert('로그인이 필요합니다.');
+          return;
+        }
+
+        if (!pushSupported()) {
+          alert('이 기기에서는 푸시 알림을 지원하지 않아요. 아이폰은 iOS 16.4 이상에서 홈 화면에 추가한 앱으로 열어야 합니다.');
+          setPushUi('warn', '이 기기는 푸시 알림을 지원하지 않아요.');
+          return;
+        }
+
+        try {
+          const permission = await Notification.requestPermission();
+          if (permission !== 'granted') {
+            alert('알림 권한이 필요해요. 브라우저나 아이폰 설정에서 알림을 허용해 주세요.');
+            setPushUi('warn', '알림 권한이 꺼져 있어요.');
+            return;
+          }
+
+          const reg = await getPushRegistration();
+          let sub = await reg.pushManager.getSubscription();
+          if (!sub) {
+            sub = await reg.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: urlBase64ToUint8Array(PUSH_PUBLIC_KEY),
+            });
+          }
+
+          const response = await api('savePushSubscription', [{
+            number: currentLogin.number,
+            pin: currentLogin.pin,
+            subscriptionJson: JSON.stringify(sub),
+          }]);
+
+          if (response && response.ok) {
+            setPushUi('on', '새 작품이 올라오면 이 기기로 알림이 도착합니다.');
+            alert('패들렛 새 글 알림이 켜졌어요.');
+          } else {
+            alert((response && response.message) || '알림 등록에 실패했습니다.');
+          }
+        } catch (error) {
+          console.error(error);
+          alert('알림을 켜지 못했어요: ' + error.message);
+        }
+      }
+
+      async function autoRegisterIfAlreadyAllowed() {
+        if (!currentLogin || !pushSupported() || Notification.permission !== 'granted') return;
+        try {
+          const reg = await getPushRegistration();
+          let sub = await reg.pushManager.getSubscription();
+          if (!sub) {
+            sub = await reg.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: urlBase64ToUint8Array(PUSH_PUBLIC_KEY),
+            });
+          }
+          await api('savePushSubscription', [{
+            number: currentLogin.number,
+            pin: currentLogin.pin,
+            subscriptionJson: JSON.stringify(sub),
+          }]);
+          setPushUi('on', '새 작품이 올라오면 이 기기로 알림이 도착합니다.');
+        } catch (error) {
+          console.error('auto push register', error);
+        }
+      }
+
+      function refreshPushStatus() {
+        if (!currentLogin) return;
+        if (!pushSupported()) {
+          setPushUi('warn', '아이폰은 홈 화면에 추가한 뒤 앱으로 열면 알림을 켤 수 있어요.');
+          return;
+        }
+        api('getMyPushStatus', [currentLogin])
+          .then((response) => {
+            if (response && response.ok && response.enabled) {
+              setPushUi('on', '새 작품이 올라오면 이 기기로 알림이 도착합니다.');
+            } else {
+              setPushUi('off', '알림을 켜면 새 작품이 올라왔을 때 잠금화면으로 알려드려요.');
+            }
+          })
+          .catch(() => setPushUi('off', '알림 상태를 확인하지 못했어요.'));
+      }
+
+      function sendTestPush() {
+        if (!currentLogin) {
+          alert('로그인이 필요합니다.');
+          return;
+        }
+        api('sendTestPush', [currentLogin])
+          .then((response) => {
+            if (response && response.ok) alert('테스트 알림을 보냈어요. 알림센터를 확인해 주세요.');
+            else alert((response && response.message) || '먼저 알림을 켜 주세요.');
+          })
+          .catch((error) => alert('테스트 알림 실패: ' + error.message));
+      }
+
+      function urlBase64ToUint8Array(base64String) {
+        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+        const rawData = atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+        for (let i = 0; i < rawData.length; i += 1) outputArray[i] = rawData.charCodeAt(i);
+        return outputArray;
+      }
+    </script>
+  </body>
+</html>
