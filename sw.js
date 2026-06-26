@@ -23,8 +23,10 @@ self.addEventListener('push', function(event) {
     body: data.body || '새 작품이 올라왔어요.',
     icon: data.icon || 'icon-192.png',
     badge: data.badge || 'icon-192.png',
-    tag: data.tag || 'student-padlet-alert',
+    tag: data.tag || ('student-padlet-alert-' + Date.now()),
     renotify: true,
+    silent: false,
+    timestamp: Date.now(),
     data: {
       url: targetUrl
     }
