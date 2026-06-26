@@ -164,7 +164,7 @@
         background: var(--bg);
       }
       .teacher-panel {
-        width: min(100%, 520px);
+        width: min(100%, 860px);
         margin: auto;
         background: var(--panel);
         border: 1px solid var(--line);
@@ -179,6 +179,88 @@
       }
       .teacher-body { padding: 20px 22px 22px; }
       .teacher-row { margin-top: 14px; }
+      .teacher-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: 16px;
+        padding: 10px 12px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #f8fbff;
+      }
+      .teacher-check {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 30px;
+        margin: 0;
+        color: #273248;
+        font-size: 14px;
+        font-weight: 800;
+      }
+      .teacher-check input {
+        width: 18px;
+        height: 18px;
+        padding: 0;
+        flex: 0 0 auto;
+      }
+      .teacher-count {
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 800;
+      }
+      .student-check-list {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        margin-top: 10px;
+      }
+      .student-check {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        gap: 10px;
+        align-items: center;
+        min-height: 54px;
+        padding: 10px 12px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fff;
+      }
+      .student-check input {
+        width: 18px;
+        height: 18px;
+        padding: 0;
+      }
+      .student-check strong {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 15px;
+      }
+      .student-check span {
+        display: block;
+        margin-top: 2px;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .push-badge {
+        padding: 4px 8px;
+        border-radius: 999px;
+        background: #eef4ff;
+        color: var(--accent-strong);
+        font-size: 12px;
+        font-weight: 900;
+        white-space: nowrap;
+      }
+      .push-badge.empty {
+        background: #fff3d6;
+        color: #8a5b00;
+      }
       .teacher-status {
         min-height: 22px;
         margin: 12px 0 0;
@@ -197,6 +279,7 @@
         .login-head, .form-body { padding-left: 18px; padding-right: 18px; }
         .teacher { padding: 18px 14px; }
         .teacher-head, .teacher-body { padding-left: 18px; padding-right: 18px; }
+        .student-check-list { grid-template-columns: 1fr; }
         .topbar { min-height: 58px; }
         .small-btn { padding: 0 9px; font-size: 12px; }
       }
@@ -260,12 +343,14 @@
             </form>
 
             <div id="teacherControls" hidden>
-              <div class="teacher-row">
-                <label for="teacherStudent">학생 선택</label>
-                <select id="teacherStudent">
-                  <option value="">선택</option>
-                </select>
+              <div class="teacher-toolbar">
+                <label class="teacher-check" for="teacherSelectAll">
+                  <input id="teacherSelectAll" type="checkbox">
+                  전체 선택
+                </label>
+                <span class="teacher-count" id="teacherSelectedCount">0명 선택</span>
               </div>
+              <div class="student-check-list" id="teacherStudentList"></div>
 
               <div class="teacher-row">
                 <label for="teacherMessage">알림 문구</label>
@@ -306,7 +391,9 @@
       const teacherPin = document.querySelector('#teacherPin');
       const teacherLoadButton = document.querySelector('#teacherLoadButton');
       const teacherControls = document.querySelector('#teacherControls');
-      const teacherStudent = document.querySelector('#teacherStudent');
+      const teacherSelectAll = document.querySelector('#teacherSelectAll');
+      const teacherStudentList = document.querySelector('#teacherStudentList');
+      const teacherSelectedCount = document.querySelector('#teacherSelectedCount');
       const teacherMessage = document.querySelector('#teacherMessage');
       const teacherSendButton = document.querySelector('#teacherSendButton');
       const teacherStatus = document.querySelector('#teacherStatus');
@@ -363,6 +450,8 @@
       testButton.addEventListener('click', sendTestPush);
       teacherForm.addEventListener('submit', loadTeacherStudents);
       teacherSendButton.addEventListener('click', sendTeacherAlert);
+      teacherSelectAll.addEventListener('change', toggleAllTeacherStudents);
+      teacherStudentList.addEventListener('change', updateTeacherSelectionCount);
 
       logoutButton.addEventListener('click', () => {
         padletFrame.src = 'about:blank';
@@ -438,7 +527,7 @@
             }
             fillTeacherStudents(response.students || []);
             teacherControls.hidden = false;
-            setTeacherStatus('학생을 선택하고 새 글 알림을 보낼 수 있습니다.', 'ok');
+            setTeacherStatus('알림을 보낼 학생을 체크해 주세요.', 'ok');
           })
           .catch((error) => setTeacherStatus('학생 목록 오류: ' + error.message, 'error'))
           .finally(() => {
@@ -448,34 +537,33 @@
       }
 
       function fillTeacherStudents(students) {
-        teacherStudent.innerHTML = '';
-        const first = document.createElement('option');
-        first.value = '';
-        first.textContent = '선택';
-        teacherStudent.appendChild(first);
-
-        const all = document.createElement('option');
-        all.value = 'all';
-        all.textContent = '전체 학생에게 보내기';
-        teacherStudent.appendChild(all);
-
+        teacherStudentList.innerHTML = '';
+        teacherSelectAll.checked = false;
         students.forEach((student) => {
-          const option = document.createElement('option');
-          option.value = student.number;
           const count = Number(student.pushCount || 0);
-          option.textContent = `${student.label || `${student.number}번 ${student.name}`} - 등록 ${count}개`;
-          teacherStudent.appendChild(option);
+          const label = document.createElement('label');
+          label.className = 'student-check';
+          label.innerHTML = `
+            <input type="checkbox" value="${escapeHtml(student.number)}">
+            <span>
+              <strong>${escapeHtml(student.label || `${student.number}번 ${student.name}`)}</strong>
+              <span>${escapeHtml(student.name || '')} 학생 패들렛</span>
+            </span>
+            <span class="push-badge${count ? '' : ' empty'}">등록 ${count}개</span>
+          `;
+          teacherStudentList.appendChild(label);
         });
+        updateTeacherSelectionCount();
       }
 
       function sendTeacherAlert() {
-        const number = teacherStudent.value;
+        const numbers = getSelectedTeacherStudentNumbers();
         if (!currentTeacherPin) {
           setTeacherStatus('먼저 선생님 PIN으로 학생 목록을 불러와 주세요.', 'error');
           return;
         }
-        if (!number) {
-          setTeacherStatus('알림을 보낼 학생을 선택해 주세요.', 'error');
+        if (!numbers.length) {
+          setTeacherStatus('알림을 보낼 학생을 체크해 주세요.', 'error');
           return;
         }
 
@@ -485,7 +573,7 @@
 
         api('sendTeacherPadletAlert', [{
           teacherPin: currentTeacherPin,
-          number: number,
+          numbers: numbers,
           message: teacherMessage.value.trim(),
         }])
           .then((response) => {
@@ -504,6 +592,37 @@
             teacherSendButton.disabled = false;
             teacherSendButton.textContent = '새 글 알림 보내기';
           });
+      }
+
+      function toggleAllTeacherStudents() {
+        teacherStudentList.querySelectorAll('input[type="checkbox"]').forEach((input) => {
+          input.checked = teacherSelectAll.checked;
+        });
+        updateTeacherSelectionCount();
+      }
+
+      function getSelectedTeacherStudentNumbers() {
+        return Array.from(teacherStudentList.querySelectorAll('input[type="checkbox"]:checked'))
+          .map((input) => input.value)
+          .filter(Boolean);
+      }
+
+      function updateTeacherSelectionCount() {
+        const all = Array.from(teacherStudentList.querySelectorAll('input[type="checkbox"]'));
+        const selected = all.filter((input) => input.checked);
+        teacherSelectedCount.textContent = `${selected.length}명 선택`;
+        teacherSelectAll.checked = all.length > 0 && selected.length === all.length;
+        teacherSelectAll.indeterminate = selected.length > 0 && selected.length < all.length;
+      }
+
+      function escapeHtml(value) {
+        return String(value || '').replace(/[&<>"']/g, (char) => ({
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#39;',
+        }[char]));
       }
 
       function setTeacherStatus(message, type) {
