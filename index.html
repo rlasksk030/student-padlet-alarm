@@ -383,7 +383,12 @@
 
       async function getPushRegistration() {
         if (!pushSupported()) throw new Error('이 기기에서는 Web Push를 지원하지 않아요.');
-        return await navigator.serviceWorker.register('sw.js?v=20260626-session');
+        await navigator.serviceWorker.register('sw.js?v=20260626-worker-ready');
+        const reg = await navigator.serviceWorker.ready;
+        if (!reg || !reg.active) {
+          throw new Error('알림 준비가 아직 끝나지 않았어요. 앱을 닫았다가 다시 열고 한 번 더 눌러 주세요.');
+        }
+        return reg;
       }
 
       async function togglePush() {
