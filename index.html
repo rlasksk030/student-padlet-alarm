@@ -213,6 +213,7 @@
     <script>
       const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyYB5l_iigw95tVtoe4E4K-Zf2XlzVBo1dGCZUPAqxyOGFoUMAeN1M5DwVWVwOt6aA/exec';
       const PUSH_PUBLIC_KEY = 'BJh74RZxk4VrDHzZTJM7DG6ZZhyyHKyQl_P_5xLxqHC1NK95XO2NBg9Miwv7hPse43wHxGiu80EQQ0wPqSWej-U';
+      const SESSION_KEY = 'student_padlet_alarm_session_v1';
 
       const loginScreen = document.querySelector('#loginScreen');
       const portfolioScreen = document.querySelector('#portfolioScreen');
@@ -233,9 +234,13 @@
       let currentStudent = null;
 
       api('getLoginStudents', [])
-        .then(fillStudentOptions)
+        .then((students) => {
+          fillStudentOptions(students);
+          restoreSavedSession();
+        })
         .catch(() => {
           errorMessage.textContent = '학생 목록을 불러오지 못했습니다. 새로고침해 주세요.';
+          restoreSavedSession();
         });
 
       loginForm.addEventListener('submit', (event) => {
@@ -264,6 +269,7 @@
         loginForm.reset();
         currentLogin = null;
         currentStudent = null;
+        clearSavedSession();
         portfolioScreen.style.display = 'none';
         loginScreen.style.display = 'flex';
         studentSelect.focus();
@@ -313,21 +319,27 @@
 
       function handleLogin(result) {
         if (!result || !result.ok) {
+          clearSavedSession();
           showError(result && result.message ? result.message : '번호 또는 핀번호를 다시 확인해 주세요.');
           return;
         }
 
         currentStudent = result.student;
-        portfolioTitle.textContent = currentStudent.title;
-        studentInfo.textContent = currentStudent.number ? `${currentStudent.number}번` : '';
-        padletFrame.src = currentStudent.padletUrl;
-        fallbackLink.href = currentStudent.padletUrl;
-        fallbackLink.style.display = 'block';
-        loginScreen.style.display = 'none';
-        portfolioScreen.style.display = 'flex';
+        saveSession(currentLogin, currentStudent);
+        showPortfolio(currentStudent);
         resetButton();
         refreshPushStatus();
         autoRegisterIfAlreadyAllowed();
+      }
+
+      function showPortfolio(student) {
+        portfolioTitle.textContent = student.title;
+        studentInfo.textContent = student.number ? `${student.number}번` : '';
+        padletFrame.src = student.padletUrl;
+        fallbackLink.href = student.padletUrl;
+        fallbackLink.style.display = 'block';
+        loginScreen.style.display = 'none';
+        portfolioScreen.style.display = 'flex';
       }
 
       function showError(message) {
@@ -361,7 +373,7 @@
 
       async function getPushRegistration() {
         if (!pushSupported()) throw new Error('이 기기에서는 Web Push를 지원하지 않아요.');
-        return await navigator.serviceWorker.register('sw.js?v=20260626');
+        return await navigator.serviceWorker.register('sw.js?v=20260626-session');
       }
 
       async function togglePush() {
@@ -470,6 +482,63 @@
         const outputArray = new Uint8Array(rawData.length);
         for (let i = 0; i < rawData.length; i += 1) outputArray[i] = rawData.charCodeAt(i);
         return outputArray;
+      }
+
+      function saveSession(login, student) {
+        if (!login || !student) return;
+        try {
+          localStorage.setItem(SESSION_KEY, JSON.stringify({
+            login: {
+              number: login.number,
+              pin: login.pin,
+            },
+            student: student,
+            savedAt: Date.now(),
+          }));
+        } catch (error) {}
+      }
+
+      function clearSavedSession() {
+        try { localStorage.removeItem(SESSION_KEY); } catch (error) {}
+      }
+
+      function restoreSavedSession() {
+        let saved = null;
+        try {
+          saved = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
+        } catch (error) {
+          saved = null;
+        }
+        if (!saved || !saved.login || !saved.student) return;
+
+        currentLogin = saved.login;
+        currentStudent = saved.student;
+        studentSelect.value = currentLogin.number || '';
+        showPortfolio(currentStudent);
+        setPushUi('off', '저장된 로그인으로 다시 열었어요. 알림 상태를 확인하는 중입니다.');
+        refreshPushStatus();
+        autoRegisterIfAlreadyAllowed();
+
+        api('login', [currentLogin])
+          .then((result) => {
+            if (!result || !result.ok) {
+              clearSavedSession();
+              currentLogin = null;
+              currentStudent = null;
+              padletFrame.src = 'about:blank';
+              portfolioScreen.style.display = 'none';
+              loginScreen.style.display = 'flex';
+              return;
+            }
+            currentStudent = result.student;
+            saveSession(currentLogin, currentStudent);
+            showPortfolio(currentStudent);
+            refreshPushStatus();
+            autoRegisterIfAlreadyAllowed();
+          })
+          .catch((error) => {
+            console.error('session restore check', error);
+          });
       }
     </script>
   </body>
