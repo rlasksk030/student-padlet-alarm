@@ -157,11 +157,46 @@
         font-size: 12px;
         line-height: 1.45;
       }
+      .teacher {
+        display: none;
+        min-height: 100dvh;
+        padding: max(22px, env(safe-area-inset-top)) 18px max(22px, env(safe-area-inset-bottom));
+        background: var(--bg);
+      }
+      .teacher-panel {
+        width: min(100%, 520px);
+        margin: auto;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+      .teacher-head {
+        padding: 22px 22px 18px;
+        border-bottom: 1px solid var(--line);
+        background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+      }
+      .teacher-body { padding: 20px 22px 22px; }
+      .teacher-row { margin-top: 14px; }
+      .teacher-status {
+        min-height: 22px;
+        margin: 12px 0 0;
+        color: var(--muted);
+        font-size: 14px;
+        font-weight: 700;
+        line-height: 1.45;
+        white-space: pre-line;
+      }
+      .teacher-status.error { color: var(--danger); }
+      .teacher-status.ok { color: var(--success); }
 
       @media (max-width: 520px) {
         .login-wrap { padding: 18px 14px; }
         h1 { font-size: 23px; }
         .login-head, .form-body { padding-left: 18px; padding-right: 18px; }
+        .teacher { padding: 18px 14px; }
+        .teacher-head, .teacher-body { padding-left: 18px; padding-right: 18px; }
         .topbar { min-height: 58px; }
         .small-btn { padding: 0 9px; font-size: 12px; }
       }
@@ -208,15 +243,53 @@
         <iframe class="padlet-frame" id="padletFrame" title="학생 패들렛 작품모음" allow="camera;microphone;geolocation"></iframe>
         <a class="fallback-link" id="fallbackLink" target="_blank" rel="noopener">새 창에서 열기</a>
       </section>
+
+      <section class="teacher" id="teacherScreen">
+        <div class="teacher-panel">
+          <div class="teacher-head">
+            <div class="badge">선생님</div>
+            <h1>새 글 알림 보내기</h1>
+            <p class="sub">학생을 선택하고 부모님 기기로 알림을 보냅니다.</p>
+          </div>
+
+          <div class="teacher-body">
+            <form id="teacherForm" autocomplete="off">
+              <label for="teacherPin">선생님 PIN</label>
+              <input id="teacherPin" name="teacherPin" inputmode="numeric" type="password" placeholder="PIN">
+              <button id="teacherLoadButton" type="submit">학생 목록 불러오기</button>
+            </form>
+
+            <div id="teacherControls" hidden>
+              <div class="teacher-row">
+                <label for="teacherStudent">학생 선택</label>
+                <select id="teacherStudent">
+                  <option value="">선택</option>
+                </select>
+              </div>
+
+              <div class="teacher-row">
+                <label for="teacherMessage">알림 문구</label>
+                <input id="teacherMessage" type="text" value="패들렛에 새 글이 올라왔어요.">
+              </div>
+
+              <button id="teacherSendButton" type="button">새 글 알림 보내기</button>
+            </div>
+
+            <p class="teacher-status" id="teacherStatus" aria-live="polite"></p>
+          </div>
+        </div>
+      </section>
     </main>
 
     <script>
       const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyYB5l_iigw95tVtoe4E4K-Zf2XlzVBo1dGCZUPAqxyOGFoUMAeN1M5DwVWVwOt6aA/exec';
       const PUSH_PUBLIC_KEY = 'BJh74RZxk4VrDHzZTJM7DG6ZZhyyHKyQl_P_5xLxqHC1NK95XO2NBg9Miwv7hPse43wHxGiu80EQQ0wPqSWej-U';
       const SESSION_KEY = 'student_padlet_alarm_session_v1';
+      const TEACHER_MODE = new URLSearchParams(location.search).get('teacher') === '1';
 
       const loginScreen = document.querySelector('#loginScreen');
       const portfolioScreen = document.querySelector('#portfolioScreen');
+      const teacherScreen = document.querySelector('#teacherScreen');
       const loginForm = document.querySelector('#loginForm');
       const loginButton = document.querySelector('#loginButton');
       const errorMessage = document.querySelector('#errorMessage');
@@ -229,9 +302,18 @@
       const testButton = document.querySelector('#testButton');
       const noticeText = document.querySelector('#noticeText');
       const studentSelect = document.querySelector('#number');
+      const teacherForm = document.querySelector('#teacherForm');
+      const teacherPin = document.querySelector('#teacherPin');
+      const teacherLoadButton = document.querySelector('#teacherLoadButton');
+      const teacherControls = document.querySelector('#teacherControls');
+      const teacherStudent = document.querySelector('#teacherStudent');
+      const teacherMessage = document.querySelector('#teacherMessage');
+      const teacherSendButton = document.querySelector('#teacherSendButton');
+      const teacherStatus = document.querySelector('#teacherStatus');
 
       let currentLogin = null;
       let currentStudent = null;
+      let currentTeacherPin = '';
 
       window.addEventListener('pagehide', () => {
         if (currentLogin && currentStudent) saveSession(currentLogin, currentStudent);
@@ -243,15 +325,22 @@
         }
       });
 
-      api('getLoginStudents', [])
-        .then((students) => {
-          fillStudentOptions(students);
-          restoreSavedSession();
-        })
-        .catch(() => {
-          errorMessage.textContent = '학생 목록을 불러오지 못했습니다. 새로고침해 주세요.';
-          restoreSavedSession();
-        });
+      if (TEACHER_MODE) {
+        loginScreen.style.display = 'none';
+        portfolioScreen.style.display = 'none';
+        teacherScreen.style.display = 'flex';
+        teacherPin.focus();
+      } else {
+        api('getLoginStudents', [])
+          .then((students) => {
+            fillStudentOptions(students);
+            restoreSavedSession();
+          })
+          .catch(() => {
+            errorMessage.textContent = '학생 목록을 불러오지 못했습니다. 새로고침해 주세요.';
+            restoreSavedSession();
+          });
+      }
 
       loginForm.addEventListener('submit', (event) => {
         event.preventDefault();
@@ -272,6 +361,8 @@
 
       notifyButton.addEventListener('click', togglePush);
       testButton.addEventListener('click', sendTestPush);
+      teacherForm.addEventListener('submit', loadTeacherStudents);
+      teacherSendButton.addEventListener('click', sendTeacherAlert);
 
       logoutButton.addEventListener('click', () => {
         padletFrame.src = 'about:blank';
@@ -325,6 +416,100 @@
           option.textContent = student.label || `${student.number}번 ${student.name}`;
           studentSelect.appendChild(option);
         });
+      }
+
+      function loadTeacherStudents(event) {
+        event.preventDefault();
+        currentTeacherPin = teacherPin.value.trim();
+        if (!currentTeacherPin) {
+          setTeacherStatus('선생님 PIN을 입력해 주세요.', 'error');
+          return;
+        }
+
+        teacherLoadButton.disabled = true;
+        teacherLoadButton.textContent = '불러오는 중...';
+        setTeacherStatus('학생 알림 상태를 확인하는 중입니다.', '');
+
+        api('getTeacherAlertStudents', [{ teacherPin: currentTeacherPin }])
+          .then((response) => {
+            if (!response || !response.ok) {
+              setTeacherStatus((response && response.message) || '학생 목록을 불러오지 못했습니다.', 'error');
+              return;
+            }
+            fillTeacherStudents(response.students || []);
+            teacherControls.hidden = false;
+            setTeacherStatus('학생을 선택하고 새 글 알림을 보낼 수 있습니다.', 'ok');
+          })
+          .catch((error) => setTeacherStatus('학생 목록 오류: ' + error.message, 'error'))
+          .finally(() => {
+            teacherLoadButton.disabled = false;
+            teacherLoadButton.textContent = '학생 목록 새로고침';
+          });
+      }
+
+      function fillTeacherStudents(students) {
+        teacherStudent.innerHTML = '';
+        const first = document.createElement('option');
+        first.value = '';
+        first.textContent = '선택';
+        teacherStudent.appendChild(first);
+
+        const all = document.createElement('option');
+        all.value = 'all';
+        all.textContent = '전체 학생에게 보내기';
+        teacherStudent.appendChild(all);
+
+        students.forEach((student) => {
+          const option = document.createElement('option');
+          option.value = student.number;
+          const count = Number(student.pushCount || 0);
+          option.textContent = `${student.label || `${student.number}번 ${student.name}`} - 등록 ${count}개`;
+          teacherStudent.appendChild(option);
+        });
+      }
+
+      function sendTeacherAlert() {
+        const number = teacherStudent.value;
+        if (!currentTeacherPin) {
+          setTeacherStatus('먼저 선생님 PIN으로 학생 목록을 불러와 주세요.', 'error');
+          return;
+        }
+        if (!number) {
+          setTeacherStatus('알림을 보낼 학생을 선택해 주세요.', 'error');
+          return;
+        }
+
+        teacherSendButton.disabled = true;
+        teacherSendButton.textContent = '보내는 중...';
+        setTeacherStatus('알림을 보내고 있습니다.', '');
+
+        api('sendTeacherPadletAlert', [{
+          teacherPin: currentTeacherPin,
+          number: number,
+          message: teacherMessage.value.trim(),
+        }])
+          .then((response) => {
+            if (!response || !response.ok) {
+              setTeacherStatus((response && response.message) || '알림을 보내지 못했습니다.', 'error');
+              return;
+            }
+            const detail = (response.results || [])
+              .filter((item) => item.sent || item.message)
+              .map((item) => `${item.name}: ${item.sent || 0}개 전송${item.message ? ` (${item.message})` : ''}`)
+              .join('\n');
+            setTeacherStatus(`${response.message}${detail ? '\n' + detail : ''}`, 'ok');
+          })
+          .catch((error) => setTeacherStatus('알림 전송 오류: ' + error.message, 'error'))
+          .finally(() => {
+            teacherSendButton.disabled = false;
+            teacherSendButton.textContent = '새 글 알림 보내기';
+          });
+      }
+
+      function setTeacherStatus(message, type) {
+        teacherStatus.classList.remove('error', 'ok');
+        if (type) teacherStatus.classList.add(type);
+        teacherStatus.textContent = message || '';
       }
 
       function handleLogin(result) {
