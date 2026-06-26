@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>학생 작품모음</title>
-    <link rel="manifest" href="manifest.json">
+    <link rel="manifest" href="teacher-manifest.json">
     <link rel="apple-touch-icon" href="icon-192.png">
     <meta name="theme-color" content="#2f6fed">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -371,7 +371,7 @@
       const PUSH_PUBLIC_KEY = 'BJh74RZxk4VrDHzZTJM7DG6ZZhyyHKyQl_P_5xLxqHC1NK95XO2NBg9Miwv7hPse43wHxGiu80EQQ0wPqSWej-U';
       const SESSION_KEY = 'student_padlet_alarm_session_v1';
       const TEACHER_MODE_KEY = 'student_padlet_teacher_mode_v1';
-      const TEACHER_MODE = resolveTeacherMode();
+      const TEACHER_MODE = true;
 
       const loginScreen = document.querySelector('#loginScreen');
       const portfolioScreen = document.querySelector('#portfolioScreen');
@@ -432,7 +432,6 @@
 
       function resolveTeacherMode() {
         const params = new URLSearchParams(location.search);
-        if (/\/teacher\.html$/i.test(location.pathname)) return true;
         if (params.get('teacher') === '1') {
           try { localStorage.setItem(TEACHER_MODE_KEY, '1'); } catch (error) {}
           return true;
