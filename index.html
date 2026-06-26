@@ -370,7 +370,8 @@
       const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyYB5l_iigw95tVtoe4E4K-Zf2XlzVBo1dGCZUPAqxyOGFoUMAeN1M5DwVWVwOt6aA/exec';
       const PUSH_PUBLIC_KEY = 'BJh74RZxk4VrDHzZTJM7DG6ZZhyyHKyQl_P_5xLxqHC1NK95XO2NBg9Miwv7hPse43wHxGiu80EQQ0wPqSWej-U';
       const SESSION_KEY = 'student_padlet_alarm_session_v1';
-      const TEACHER_MODE = new URLSearchParams(location.search).get('teacher') === '1';
+      const TEACHER_MODE_KEY = 'student_padlet_teacher_mode_v1';
+      const TEACHER_MODE = resolveTeacherMode();
 
       const loginScreen = document.querySelector('#loginScreen');
       const portfolioScreen = document.querySelector('#portfolioScreen');
@@ -427,6 +428,23 @@
             errorMessage.textContent = '학생 목록을 불러오지 못했습니다. 새로고침해 주세요.';
             restoreSavedSession();
           });
+      }
+
+      function resolveTeacherMode() {
+        const params = new URLSearchParams(location.search);
+        if (params.get('teacher') === '1') {
+          try { localStorage.setItem(TEACHER_MODE_KEY, '1'); } catch (error) {}
+          return true;
+        }
+        if (params.get('parent') === '1') {
+          try { localStorage.removeItem(TEACHER_MODE_KEY); } catch (error) {}
+          return false;
+        }
+        try {
+          return localStorage.getItem(TEACHER_MODE_KEY) === '1';
+        } catch (error) {
+          return false;
+        }
       }
 
       loginForm.addEventListener('submit', (event) => {
