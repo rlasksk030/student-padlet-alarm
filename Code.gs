@@ -7,7 +7,9 @@ const PROP_PUSH_PREFIX = 'push:';
 const PROP_PADLET_PREFIX = 'padlet:';
 
 const PUSH_SERVER_URL = 'https://okgu-push-server030.vercel.app';
-const PUSH_SECRET = 'nK3iursOcEsaINl6Kijt2P9v5CRcFVNc';
+// PUSH_SECRET 은 코드에 두지 않는다. 한 번이라도 공개 저장소에 올라가면
+// 그 값은 폐기하고 새로 만들어야 하기 때문이다.
+// Apps Script 편집기 > 프로젝트 설정 > 스크립트 속성 에 PUSH_SECRET 을 넣는다.
 const PWA_APP_URL = 'https://rlasksk030.github.io/student-padlet-alarm/';
 
 const FALLBACK_STUDENTS = [
@@ -152,7 +154,7 @@ function authorizeExternalRequestOnce() {
   const response = UrlFetchApp.fetch(PUSH_SERVER_URL.replace(/\/$/, '') + '/api/send-push', {
     method: 'post',
     contentType: 'application/json',
-    headers: { Authorization: 'Bearer ' + PUSH_SECRET },
+    headers: { Authorization: 'Bearer ' + pushSecret_() },
     payload: JSON.stringify({
       subscriptions: [],
       title: '학생 작품모음',
@@ -371,12 +373,18 @@ function callPushServer_(subscriptions, title, body, tag, url) {
   if (!PUSH_SERVER_URL || PUSH_SERVER_URL.indexOf('YOUR-VERCEL-APP') >= 0) {
     return { ok: false, message: 'PUSH_SERVER_URL을 설정해 주세요.' };
   }
+  // 설정이 비었다는 사실만 알린다. 토큰 값은 절대 담지 않는다.
+  try {
+    pushSecret_();
+  } catch (error) {
+    return { ok: false, message: '스크립트 속성 PUSH_SECRET 을 설정해 주세요.' };
+  }
 
   try {
     const response = UrlFetchApp.fetch(PUSH_SERVER_URL.replace(/\/$/, '') + '/api/send-push', {
       method: 'post',
       contentType: 'application/json',
-      headers: { Authorization: 'Bearer ' + PUSH_SECRET },
+      headers: { Authorization: 'Bearer ' + pushSecret_() },
       payload: JSON.stringify({
         subscriptions: subscriptions,
         title: title || '학생 작품모음',
@@ -462,6 +470,15 @@ function getSpreadsheet_() {
   } catch (error) {
     return null;
   }
+}
+
+// 발송 API 인증 토큰. 값 자체는 어떤 메시지·로그에도 싣지 않는다.
+function pushSecret_() {
+  const secret = (getScriptProps_().getProperty('PUSH_SECRET') || '').trim();
+  if (!secret) {
+    throw new Error('스크립트 속성 PUSH_SECRET 이 설정되지 않았습니다. 프로젝트 설정에서 추가해 주세요.');
+  }
+  return secret;
 }
 
 function getScriptProps_() {
