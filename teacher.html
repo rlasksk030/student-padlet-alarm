@@ -765,7 +765,7 @@
         if (!currentLogin || !pushSupported() || Notification.permission !== 'granted') return;
         try {
           const reg = await getPushRegistration();
-          let sub = await reg.pushManager.getSubscription();
+          let sub = await dropSubscriptionIfKeyChanged(reg, PUSH_PUBLIC_KEY);
           if (!sub) {
             sub = await reg.pushManager.subscribe({
               userVisibleOnly: true,
@@ -834,6 +834,39 @@
             else alert((response && response.message) || '먼저 알림을 켜 주세요.');
           })
           .catch((error) => alert('테스트 알림 실패: ' + error.message));
+      }
+
+      // --- VAPID 키 교체 대응 ---
+      // Web Push 구독은 "만들 때 쓴 공개키"에 묶인다. 서버 키를 바꾸면 예전 구독은
+      // 푸시 서비스가 401/403 으로 거부하는데, 브라우저에는 아무 표시도 나지 않는다.
+      // 그래서 알림이 조용히 끊긴다. 이 불일치를 코드가 직접 잡아낸다.
+      // 반환값: true 같음 / false 다름 / null 알 수 없음(구형 브라우저)
+      function pushKeyMatches(subscription, expectedBase64) {
+        try {
+          var raw = subscription && subscription.options && subscription.options.applicationServerKey;
+          if (!raw) return null;
+          var current = new Uint8Array(raw);
+          var expected = urlBase64ToUint8Array(expectedBase64);
+          if (current.length !== expected.length) return false;
+          for (var i = 0; i < current.length; i += 1) {
+            if (current[i] !== expected[i]) return false;
+          }
+          return true;
+        } catch (error) {
+          return null;
+        }
+      }
+
+      // 키가 "확실히" 다를 때만 기존 구독을 버린다. 알 수 없으면 그대로 둔다.
+      // 서버가 전환 기간에는 옛 키로도 보내 주므로, 그대로 두어도 알림은 계속 간다.
+      // 권한을 새로 묻지 않는다. 이미 허용된 경우에만 호출되는 자리에서 쓴다.
+      async function dropSubscriptionIfKeyChanged(registration, expectedBase64) {
+        var subscription = await registration.pushManager.getSubscription();
+        if (subscription && pushKeyMatches(subscription, expectedBase64) === false) {
+          try { await subscription.unsubscribe(); } catch (error) {}
+          subscription = null;
+        }
+        return subscription;
       }
 
       function urlBase64ToUint8Array(base64String) {
