@@ -1,0 +1,7 @@
+node_modules/
+.env
+.env.*
+*.secret
+students.csv
+students.json
+명단*.csv
