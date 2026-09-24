@@ -10,21 +10,12 @@ const PUSH_SERVER_URL = 'https://okgu-push-server030.vercel.app';
 const PUSH_SECRET = 'nK3iursOcEsaINl6Kijt2P9v5CRcFVNc';
 const PWA_APP_URL = 'https://rlasksk030.github.io/student-padlet-alarm/';
 
-const FALLBACK_STUDENTS = [
-  { number: '1', name: '강민혁', pin: '0309', padletUrl: 'https://padlet.com/rlasksk030/breakout-room/J7pj4oladoK92KMG-QlgRvw6LnNmmXK9q' },
-  { number: '2', name: '고정현', pin: '0327', padletUrl: 'https://padlet.com/rlasksk030/breakout-room/65XOvBYBxdpwqGBQ-QlgRvw6LnNmmXK9q' },
-  { number: '3', name: '김다솜', pin: '1128', padletUrl: 'https://padlet.com/rlasksk030/breakout-room/PkpnqAarx9eVqD0B-QlgRvw6LnNmmXK9q' },
-  { number: '4', name: '김장한', pin: '1028', padletUrl: 'https://padlet.com/rlasksk030/breakout-room/ldoNv8JQ7Vlz2JXV-QlgRvw6LnNmmXK9q' },
-  { number: '5', name: '김희성', pin: '1128', padletUrl: 'https://padlet.com/rlasksk030/breakout-room/d6AO26JZyRVa2ojL-QlgRvw6LnNmmXK9q' },
-  { number: '6', name: '문하율', pin: '0307', padletUrl: 'https://padlet.com/rlasksk030/breakout-room/gx604eB1d67b2YGo-QlgRvw6LnNmmXK9q' },
-  { number: '7', name: '박민지', pin: '0524', padletUrl: 'https://padlet.com/rlasksk030/breakout-room/Arng4MkZxEn5qK6p-QlgRvw6LnNmmXK9q' },
-  { number: '8', name: '서가윤', pin: '0710', padletUrl: 'https://padlet.com/rlasksk030/breakout-room/d6AO26JZyRjP2ojL-QlgRvw6LnNmmXK9q' },
-  { number: '9', name: '송은채', pin: '0725', padletUrl: 'https://padlet.com/rlasksk030/breakout-room/kZDR4LRZxYNWql9a-QlgRvw6LnNmmXK9q' },
-  { number: '10', name: '이다인', pin: '0905', padletUrl: 'https://padlet.com/rlasksk030/breakout-room/E1Xd49kXyM3mqGJr-QlgRvw6LnNmmXK9q' },
-  { number: '11', name: '전현수', pin: '0319', padletUrl: 'https://padlet.com/rlasksk030/breakout-room/d6AO26J1Qna92ojL-QlgRvw6LnNmmXK9q' },
-  { number: '12', name: '최일강', pin: '0120', padletUrl: 'https://padlet.com/rlasksk030/breakout-room/7PY5qNlZbjKo4Ba8-QlgRvw6LnNmmXK9q' },
-  { number: '13', name: '황은찬', pin: '0907', padletUrl: 'https://padlet.com/rlasksk030/breakout-room/J7z0qjZRDjXeqmWQ-QlgRvw6LnNmmXK9q' },
-];
+// 학생 명단(이름·핀번호·패들렛 링크)은 코드에 두지 않는다.
+// 예전에는 이 자리에 실제 학급 명단이 상수로 박혀 있었고, 저장소가 공개라
+// 누구나 읽을 수 있었다. 게다가 시트를 못 읽으면 그 명단으로 로그인까지
+// 통과했다. 이제 명단은 스프레드시트에만 있고, 못 읽으면 안전하게 실패한다.
+const STUDENTS_UNAVAILABLE_MESSAGE =
+  '학생 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.';
 
 function doGet(e) {
   if (e && e.parameter && e.parameter.fn) return handleJsonpRpc_(e);
@@ -72,7 +63,11 @@ function login(payload) {
     return { ok: false, message: '학생 번호와 핀번호를 모두 입력해 주세요.' };
   }
 
-  const student = findStudentByLogin_(number, pin);
+  const roster = readStudents_();
+  // 자료를 못 읽은 것과 핀번호가 틀린 것은 다르다. 섞으면 교사가 원인을 못 찾는다.
+  if (!roster) return { ok: false, message: STUDENTS_UNAVAILABLE_MESSAGE };
+
+  const student = findStudentInRoster_(roster, number, pin);
   if (!student) {
     return { ok: false, message: '번호 또는 핀번호를 다시 확인해 주세요.' };
   }
@@ -89,7 +84,10 @@ function login(payload) {
 }
 
 function getLoginStudents() {
-  return getStudents_().map((student) => ({
+  const roster = readStudents_();
+  // 빈 목록을 조용히 내려보내면 화면만 비고 이유를 알 수 없다. 오류로 알린다.
+  if (!roster) throw new Error(STUDENTS_UNAVAILABLE_MESSAGE);
+  return roster.map((student) => ({
     number: student.number,
     name: student.name,
     label: `${student.number}번 ${student.name}`,
@@ -408,24 +406,31 @@ function requireStudent_(payload) {
   const pin = normalize_(payload && payload.pin);
   if (!number || !pin) return { ok: false, message: '다시 로그인해 주세요.' };
 
-  const student = findStudentByLogin_(number, pin);
+  const roster = readStudents_();
+  if (!roster) return { ok: false, message: STUDENTS_UNAVAILABLE_MESSAGE };
+
+  const student = findStudentInRoster_(roster, number, pin);
   if (!student) return { ok: false, message: '번호 또는 핀번호를 다시 확인해 주세요.' };
   student.ok = true;
   return student;
 }
 
-function findStudentByLogin_(number, pin) {
-  return getStudents_().find((item) => {
+function findStudentInRoster_(roster, number, pin) {
+  return roster.find((item) => {
     return normalize_(item.number) === number && normalize_(item.pin) === pin;
   });
 }
 
-function getStudents_() {
+function findStudentByLogin_(number, pin) {
+  return findStudentInRoster_(getStudents_(), number, pin);
+}
+
+function readStudents_() {
   const sheet = getSheet_();
-  if (!sheet) return FALLBACK_STUDENTS;
+  if (!sheet) return null;
 
   const values = sheet.getDataRange().getDisplayValues();
-  if (values.length < 2) return FALLBACK_STUDENTS;
+  if (values.length < 2) return null;
 
   const headers = values[0].map(normalizeHeader_);
   const numberIndex = findHeader_(headers, ['번호', 'number', 'no']);
@@ -433,7 +438,7 @@ function getStudents_() {
   const pinIndex = findHeader_(headers, ['핀번호', 'pin', 'password']);
   const padletIndex = findHeader_(headers, ['패들렛링크', '패들렛', 'padlet', 'padleturl']);
 
-  if (numberIndex < 0 || pinIndex < 0 || padletIndex < 0) return FALLBACK_STUDENTS;
+  if (numberIndex < 0 || pinIndex < 0 || padletIndex < 0) return null;
 
   return values
     .slice(1)
@@ -444,6 +449,12 @@ function getStudents_() {
       padletUrl: row[padletIndex],
     }))
     .filter((item) => item.pin && item.padletUrl);
+}
+
+// 명단을 못 읽었을 때 예전 코드는 내장 명단으로 넘어갔다. 지금은 빈 목록이다.
+// 빈 목록이면 어떤 번호·핀번호도 맞지 않으므로 로그인이 통과하지 않는다.
+function getStudents_() {
+  return readStudents_() || [];
 }
 
 function getSheet_() {
